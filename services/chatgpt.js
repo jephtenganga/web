@@ -5,7 +5,6 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 const users = {};
 
-// Ajoute le système prompt que vous avez fourni
 const systemPrompt = `
 Vous êtes un assistant utile, respectueux et honnête.
 Répondez toujours de la manière la plus utile possible, tout en restant prudent.
@@ -20,30 +19,36 @@ ne partagez pas de fausses informations.
 `;
 
 module.exports = async function generatePersonalityResponse(message, number) {
-    // Grab user from "database" or create one if not exists
-    if (!users[number]) {
-        users[number] = { messages: [] };
-    }
+  // Grab user from "database" or create one if not exists
+  if (!users[number]) {
+    users[number] = { messages: [] };
+  }
 
-    // Ajoute le système prompt à la liste des messages
-    if (!users[number].systemPromptAdded) {
-        const systemPromptObj = { role: 'system', content: systemPrompt };
-        users[number].messages.push(systemPromptObj);
-        users[number].systemPromptAdded = true;
-    }
+  // Ajoute le système prompt à la liste des messages
+  if (!users[number].systemPromptAdded) {
+    const systemPromptObj = { role: 'system', content: systemPrompt };
+    users[number].messages.push(systemPromptObj);
+    users[number].systemPromptAdded = true;
+  }
 
-    // Ajoute le message de l'utilisateur à la liste des messages
-    const messageObj = { role: 'user', content: message };
-    users[number].messages.push(messageObj);
+  // Ajoute le message de l'utilisateur à la liste des messages
+  const messageObj = { role: 'user', content: message };
+  users[number].messages.push(messageObj);
 
-    // Génère la réponse de l'IA, la stocke dans les messages de l'utilisateur et la renvoie à l'utilisateur
-    const completion = await openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
-        messages: users[number].messages,
-        max_tokens: 500
-    });
+  // Génère la réponse de l'IA, la stocke dans les messages de l'utilisateur et la renvoie à l'utilisateur
+  const completion = await openai.createChatCompletion({
+    model: "gpt-3.5-turbo",
+    messages: users[number].messages,
+    max_tokens: 500
+  });
 
-    const aiResponse = completion.data.choices[0].message.content;
-    users[number].messages.push({ role: 'assistant', content: aiResponse });
-    return aiResponse;
+  let aiResponse = completion.data.choices[0].message.content;
+
+  // Vérifie si l'IA n'a pas répondu à la question
+  if (aiResponse.includes("Si vous ne connaissez pas la réponse à une question")) {
+    aiResponse = "Je suis désolé, mais je ne peux pas répondre à cette question car elle ne semble pas être cohérente ou je n'ai pas suffisamment d'informations pour y répondre.";
+  }
+
+  users[number].messages.push({ role: 'assistant', content: aiResponse });
+  return aiResponse;
 }
